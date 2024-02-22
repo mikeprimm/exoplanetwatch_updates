@@ -12,7 +12,7 @@ const EPWData_URL = "https://exoplanets.nasa.gov/api/v1/exoplanet_watch_results/
 
 interface ExoplanetWatchConfig {
     configID: string,
-    slackURLs: string[] // List of Webhook URLs to be posted to
+    slackURLs: { url: string, limitObserverCodes?: string[]} [] // List of Webhook URLs to be posted to
     firstPassDone: boolean,
 };
 
@@ -40,8 +40,10 @@ async function reportObservation(obs: EPWObservation, rec: EPWTargetData, cfg: E
         const jd = JD.fromJdn(parseFloat(obs.parameters.Tc), { isUTC: true });
         const utcfmt = jd.format('YYYY-MM-DD HH:mm:ss');
         let obscode: string = obs.obscode.id;
+        let codes: string[] = [ obs.obscode.id ];
         if (obs.secondary_obscodes?.length) {
             let ids = obs.secondary_obscodes.map(v => v.id);
+            ids.forEach(id => codes.push(id));
             obscode = `${obscode} (and secondary ${ids.length == 1 ? "observer" : "observers"} ${ids.join(',')})`;
         }
         let msg = { text: `Observation of planet ${rec.name} of star ${rec.host} by observer ${obscode} with Tmid=${obs.parameters.Tc} (${utcfmt} UT) added to Exoplanet Watch Database.` };
@@ -50,7 +52,12 @@ async function reportObservation(obs: EPWObservation, rec: EPWTargetData, cfg: E
         }
         msg.text += "\n";
         for (let tgt of (cfg.slackURLs || [])) {
-            let rslt = await got.post(tgt, {
+            if (tgt.limitObserverCodes) {
+                let match = false;
+                codes.forEach(code => match = match || tgt.limitObserverCodes.includes(code));
+                if (!match) continue;
+            }            
+            let rslt = await got.post(tgt.url, {
                 headers: { 
                     "Content-Type": 'application/json'},
                 json: msg,
