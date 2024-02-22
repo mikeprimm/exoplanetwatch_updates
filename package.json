@@ -32,6 +32,7 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
+    "@lunisolar/julian": "^0.7.1",
     "got": "^11.8.6",
     "md5": "^2.3.0",
     "source-map-support": "^0.5.21",

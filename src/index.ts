@@ -2,6 +2,7 @@ import got from "got";
 import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb/dist-cjs/models";
 import { getByKey, putRecord, putSafe } from "./ddb";
 import { EPWData, EPWObservation, EPWTargetData } from "./epwTypes";
+import { JD } from '@lunisolar/julian';
 
 const DDBTABLE_ExoplanetWatchConfig = "ExoplanetWatchConfig";
 const DDBTABLE_ExoplanetWatchState = "ExoplanetWatchState";
@@ -36,12 +37,14 @@ async function getExoplanetWatchData(): Promise<EPWData> {
 
 async function reportObservation(obs: EPWObservation, rec: EPWTargetData, cfg: ExoplanetWatchConfig) {
     if (cfg.firstPassDone) {
+        const jd = JD.fromJdn(parseFloat(obs.parameters.Tc), { isUTC: true });
+        const utcfmt = jd.format('YYYY-MM-DD HH:mm:ss');
         let obscode: string = obs.obscode.id;
         if (obs.secondary_obscodes?.length) {
             let ids = obs.secondary_obscodes.map(v => v.id);
             obscode = `${obscode} (and secondary ${ids.length == 1 ? "observer" : "observers"} ${ids.join(',')})`;
         }
-        let msg = { text: `Observation of planet ${rec.name} of star ${rec.host} by observer ${obscode} with Tmid=${obs.parameters.Tc} added to Exoplanet Watch Database.` };
+        let msg = { text: `Observation of planet ${rec.name} of star ${rec.host} by observer ${obscode} with Tmid=${obs.parameters.Tc} (${utcfmt} UT) added to Exoplanet Watch Database.` };
         if (obs.data_flag_ephemeris) {
             msg.text += " Observation is included in ephemeris calculations.";
         }
