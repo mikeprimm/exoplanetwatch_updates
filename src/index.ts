@@ -1,13 +1,8 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb/dist-cjs/DynamoDBClient";
-import { ProvisionedThroughputExceededException } from "@aws-sdk/client-dynamodb/dist-cjs/models";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb/dist-cjs/DynamoDBDocumentClient";
-import { QueryCommand, QueryCommandInput } from "@aws-sdk/lib-dynamodb/dist-cjs/commands/QueryCommand";
-import { GetCommandInput, GetCommand } from "@aws-sdk/lib-dynamodb/dist-cjs/commands/GetCommand";
-import { PutCommandInput } from "@aws-sdk/lib-dynamodb/dist-cjs/commands/PutCommand";
-import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb/dist-cjs/models";
 import got from "got";
+import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb/dist-cjs/models";
+import { getByKey, putRecord, putSafe } from "./ddb";
+import { EPWData, EPWObservation, EPWTargetData } from "./epwTypes";
 
-const MAXIMUM_ATTEMPTS = 6;
 const DDBTABLE_ExoplanetWatchConfig = "ExoplanetWatchConfig";
 const DDBTABLE_ExoplanetWatchState = "ExoplanetWatchState";
 
@@ -16,130 +11,71 @@ const EPWData_URL = "https://exoplanets.nasa.gov/api/v1/exoplanet_watch_results/
 
 interface ExoplanetWatchConfig {
     configID: string,
-    stackURLs: string[] // List of Webhook URLs to be posted to
+    slackURLs: string[] // List of Webhook URLs to be posted to
+    firstPassDone: boolean,
+};
+
+interface ExoplanetWatchState {
+    targetID: string,
+    observationIDs: string[],
 };
 
 function configMapper(item: Record<string, NativeAttributeValue>): ExoplanetWatchConfig {
-    return { configID: item.configID, stackURLs: item.stackURLs };
+    return { configID: item.configID, slackURLs: item.slackURLs, firstPassDone: !!item.firstPassDone };
 }
-
-export const getDDB = (() => {
-    let ddb: DynamoDBClient;
-	return () => ddb = (ddb || 
-        new DynamoDBClient({ region: process.env.AWS_REGION, maxAttempts: MAXIMUM_ATTEMPTS }))
-})();
-export const getDDBDocClient = (() => {
-    let ddbdoc: DynamoDBDocumentClient;
-	return () => ddbdoc = (ddbdoc || 
-        DynamoDBDocumentClient.from(getDDB(), { 
-            marshallOptions: { convertEmptyValues: false, removeUndefinedValues: true, convertClassInstanceToMap: false },
-            unmarshallOptions: { wrapNumbers: false } }))
-})();
-
-export async function getFull<T>(get: GetCommandInput,
-    mapper: (item: Record<string, NativeAttributeValue>) => T): Promise<T> {
-    const startTS = Date.now();
-    const ddbDocClient = getDDBDocClient();
-    let delay = 500;
-
-    async function getItem(): Promise<T> {
-        let params = get;
-        let item: T = null;
-        try {
-            const res = await ddbDocClient.send(new GetCommand(params));
-            if (res && res.Item) {
-                item = mapper(res.Item);
-            }
-            return item;
-        }
-        catch (err) {
-            if (err instanceof ProvisionedThroughputExceededException) {
-                delay = delay * 2;
-                return await new Promise(
-                    (resolve, reject) => setTimeout(() => getItem().then(resolve).catch(reject), delay)
-                );
-            }
-            else {
-                console.log(`getFull<${get.TableName}> EXCEPTION: ${err.message}`);
-                console.log(`params=${JSON.stringify(params)}`);
-                throw err;
-            }
-        }
-    }
-    let rslt = await getItem();
-    return rslt;
+function stateMapper(item: Record<string, NativeAttributeValue>): ExoplanetWatchState {
+    return { targetID: item.targetID, observationIDs: item.observationIDs };
 }
-
-export async function getByKey<T>(tableName: string,
-    keyParams: Record<string, NativeAttributeValue>,
-    mapper: (item: Record<string, NativeAttributeValue>) => T): Promise<T> {
-    const ddbDocClient = getDDBDocClient();
-    let rc: T = null;
-    let params: GetCommandInput = {
-        TableName: tableName,
-        Key: keyParams
-    };
-    try {
-        let data = await ddbDocClient.send(new GetCommand(params));
-        if (data && data.Item) {
-            rc = mapper(data.Item);
-        }
-    }
-    catch (err) {
-        console.log(`getByKey<${tableName}> EXCEPTION: ${err.message}`);
-        console.log(`params=${JSON.stringify(params)}`);
-        throw err;
-    }
-    return rc;
-}
-interface EPWObserver {
-    id: string,
-    org: string,
-    "link-obs": string,
-    "link-org": string,
-    "link-collab": string,
-};
-
-interface EPWData {
-    items: { 
-        // Key is planet ID
-        [key: string]: {
-            host: string,   // Star ID
-            name: string,   // Planet ID
-            priors: { [key: string]: { 
-                units: string, 
-                value: string, 
-                reference: string, 
-                uncertainty: string } },
-            ephemeris: { [key: string]: string },
-            timestamp: string,  // ISO datetime
-            identifier: string,
-            observations: {
-                files: { [key: string]: string },
-                errors: { [key: string]: string },
-                filter: {
-                    desc: string,
-                    fwhm: {
-                        units: string,
-                        value: string,
-                    }[],
-                    name: string,
-                },
-                obscode: EPWObserver,
-                identifier: string,
-                parameters: { [key: string]: string },
-                secondary_obscodes: EPWObserver[],
-                data_flag_ephemeris: boolean
-            }[],
-        } 
-    }[],
-};
 
 async function getExoplanetWatchData(): Promise<EPWData> {
     return got.get<EPWData>(EPWData_URL, 
         {   headers: { Accept: 'application/json' },
             timeout: { lookup: 10000, socket: 10000, connect: 10000, secureConnect: 10000 },
         }).json<EPWData>();
+}
+
+async function reportObservation(obs: EPWObservation, rec: EPWTargetData, cfg: ExoplanetWatchConfig) {
+    if (cfg.firstPassDone) {
+        let obscode: string = obs.obscode.id;
+        if (obs.secondary_obscodes?.length) {
+            let ids = obs.secondary_obscodes.map(v => v.id);
+            obscode = `${obscode} (and secondary ${ids.length == 1 ? "observer" : "observers"} ${ids.join(',')})`;
+        }
+        let msg = { text: `Observation of planet ${rec.name} of star ${rec.host} by observer ${obscode} with Tmid=${obs.parameters.Tc} added to Exoplanet Watch Database.` };
+        if (obs.data_flag_ephemeris) {
+            msg.text += " Observation is included in ephemeris calculations.";
+        }
+        msg.text += "\n";
+        for (let tgt of (cfg.slackURLs || [])) {
+            let rslt = await got.post(tgt, {
+                headers: { 
+                    "Content-Type": 'application/json'},
+                json: msg,
+                timeout: { lookup: 10000, socket: 10000, connect: 10000, secureConnect: 10000 },
+            });
+        }
+    }
+}
+
+async function handleTarget(rec: EPWTargetData, cfg: ExoplanetWatchConfig) {
+    if (!rec) return;
+    // Get state record for target
+    let state = await getByKey<ExoplanetWatchState>(DDBTABLE_ExoplanetWatchState, 
+        { targetID: rec.identifier }, stateMapper);
+    let knownObservationIDs = new Set<string>(state?.observationIDs || []);
+    let addedNew = false;
+    for (let obs of rec.observations) {
+        // Skip known ones
+        if (knownObservationIDs.has(obs.identifier)) continue;
+        addedNew = true;
+        knownObservationIDs.add(obs.identifier);
+        // And report new addition
+        await reportObservation(obs, rec, cfg);
+    }
+    if (addedNew) {
+        await putRecord<ExoplanetWatchState>(DDBTABLE_ExoplanetWatchState, 
+            { targetID: rec.identifier, observationIDs: Array.from(knownObservationIDs) });
+    }
 }
 
 // Periodic handler
@@ -153,10 +89,14 @@ export async function handler(event: AWSLambda.ScheduledEvent, context): Promise
             return;
         }
         let epwdata = await getExoplanetWatchData();
-        for (let itm of epwdata.items) {
-            let rec = Object.values(itm)[0];
-            if (!rec) continue;
-            console.log(`${rec.identifier}: host=${rec.host}, name=${rec.name}, #obs=${rec.observations.length}`);
+        // Process all records
+        await Promise.all(
+            epwdata.items.map(itm => handleTarget(Object.values(itm)[0], config))
+        );
+        // If first pass wasn't done, mark it done
+        if (!config.firstPassDone) {
+            config.firstPassDone = true;
+            await putRecord<ExoplanetWatchConfig>(DDBTABLE_ExoplanetWatchConfig, config);    
         }
     } catch (err) {
         console.log(`ERROR: ${err.message}`, err);

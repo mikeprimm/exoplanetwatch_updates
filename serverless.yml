@@ -12,7 +12,6 @@ provider:
   logRetentionInDays: 14
   versionFunctions: false
   memorySize: 384
-  timeout: 29
   iam:
     role:
       statements:
@@ -34,6 +33,7 @@ functions:
   PeriodicCheck:
     handler: dist/index.handler
     name: ${self:service}-PeriodicCheck
+    timeout: 120
     events:
     - schedule: rate(1 day)
 
