@@ -1,0 +1,70 @@
+service: exoplanetwatch-updates
+
+custom:
+  stage: dev
+  region: ${aws:region}
+
+provider:
+  name: aws
+  stackName: ${self:service}
+  runtime: nodejs18.x
+  region: ${opt:region, 'us-east-2'}
+  logRetentionInDays: 14
+  versionFunctions: false
+  memorySize: 384
+  timeout: 29
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:*
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/ExoplanetWatchConfig
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/ExoplanetWatchState
+
+package:
+  patterns:
+    - "!bin/**/*"
+    - "!.*"
+    - "!src/**/*"
+    - '!test/**/*'
+
+functions: 
+  PeriodicCheck:
+    handler: dist/index.handler
+    name: ${self:service}-PeriodicCheck
+    events:
+#    - schedule: rate(1 day)
+    - schedule: rate(10 minutes)
+
+resources:
+  Resources:
+    # Table for Exoplanet Watch config
+    ExoplanetWatchConfig:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ExoplanetWatchConfig
+        BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        AttributeDefinitions:
+          - AttributeName: configID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: configID
+            KeyType: HASH
+    # Table for Exoplanet Watch state
+    ExoplanetWatchState:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ExoplanetWatchState
+        BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        AttributeDefinitions:
+          - AttributeName: targetID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: targetID
+            KeyType: HASH

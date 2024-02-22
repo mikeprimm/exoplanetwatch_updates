@@ -1,0 +1,33 @@
+{
+    "compilerOptions": {
+      "module": "node16",
+      "target": "es2022",
+      "rootDir": "./src",
+      "outDir": "./dist",
+      "noImplicitAny": false,
+      "inlineSourceMap": true,
+      "allowJs": false,
+      "emitDecoratorMetadata": true,
+      "experimentalDecorators": true,
+      "allowSyntheticDefaultImports": true,
+      "esModuleInterop": true,
+      "moduleResolution": "node16",
+      "declaration": false,
+      "listFiles": false
+    },
+    "lib": [
+      "es2023"
+    ],
+    "include": [
+      "./src/**/*"
+    ],
+    "exclude": [
+      ".vscode",
+      ".serverless",
+      ".git",
+      "node_modules",
+      "./dist/**/*"
+    ],
+    "compileOnSave": true,
+    "buildOnSave": false
+  }

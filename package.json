@@ -1,0 +1,40 @@
+{
+  "name": "exoplanetwatch_updates",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "./node_modules/typescript/bin/tsc",
+    "deploy": "./node_modules/typescript/bin/tsc && node ./node_modules/serverless/bin/serverless.js deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikeprimm/exoplanetwatch_updates.git"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/mikeprimm/exoplanetwatch_updates/issues"
+  },
+  "homepage": "https://github.com/mikeprimm/exoplanetwatch_updates#readme",
+  "devDependencies": {
+    "@aws-sdk/client-lambda": "^3.518.0",
+    "@aws-sdk/client-ssm": "^3.515.0",
+    "@aws-sdk/lib-dynamodb": "^3.518.0",
+    "@aws-sdk/util-dynamodb": "^3.436.0",
+    "@types/aws-lambda": "^8.10.134",
+    "@types/md5": "^2.3.5",
+    "@types/node": "^12.20.55",
+    "@types/uuid": "^9.0.8",
+    "js-yaml": "^3.14.1",
+    "serverless": "^3.38.0",
+    "ts-node": "^8.10.2",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "got": "^11.8.6",
+    "md5": "^2.3.0",
+    "source-map-support": "^0.5.21",
+    "uuid": "^9.0.1"
+  }
+}
