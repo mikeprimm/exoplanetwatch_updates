@@ -35,8 +35,7 @@ functions:
     handler: dist/index.handler
     name: ${self:service}-PeriodicCheck
     events:
-#    - schedule: rate(1 day)
-    - schedule: rate(10 minutes)
+    - schedule: rate(1 day)
 
 resources:
   Resources:
