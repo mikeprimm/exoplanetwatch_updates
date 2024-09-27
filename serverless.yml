@@ -7,7 +7,7 @@ custom:
 provider:
   name: aws
   stackName: ${self:service}
-  runtime: nodejs18.x
+  runtime: nodejs20.x
   region: ${opt:region, 'us-east-2'}
   logRetentionInDays: 14
   versionFunctions: false

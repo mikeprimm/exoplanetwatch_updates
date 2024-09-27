@@ -1,5 +1,5 @@
 import got from "got";
-import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb/dist-cjs/models";
+import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb";
 import { getByKey, putRecord, putSafe } from "./ddb";
 import { EPWData, EPWObservation, EPWTargetData } from "./epwTypes";
 import { JD } from '@lunisolar/julian';

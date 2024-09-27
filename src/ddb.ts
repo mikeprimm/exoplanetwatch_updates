@@ -1,10 +1,7 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb/dist-cjs/DynamoDBClient";
-import { ProvisionedThroughputExceededException } from "@aws-sdk/client-dynamodb/dist-cjs/models";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb/dist-cjs/DynamoDBDocumentClient";
-import { QueryCommand, QueryCommandInput } from "@aws-sdk/lib-dynamodb/dist-cjs/commands/QueryCommand";
-import { GetCommandInput, GetCommand } from "@aws-sdk/lib-dynamodb/dist-cjs/commands/GetCommand";
-import { PutCommandInput, PutCommand } from "@aws-sdk/lib-dynamodb/dist-cjs/commands/PutCommand";
-import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb/dist-cjs/models";
+import { DynamoDBClient, ProvisionedThroughputExceededException } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommandInput, GetCommand, 
+    PutCommandInput, PutCommand, } from "@aws-sdk/lib-dynamodb";
+import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb";
 
 const MAXIMUM_ATTEMPTS = 6;
 

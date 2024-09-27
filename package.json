@@ -18,10 +18,6 @@
   },
   "homepage": "https://github.com/mikeprimm/exoplanetwatch_updates#readme",
   "devDependencies": {
-    "@aws-sdk/client-lambda": "^3.518.0",
-    "@aws-sdk/client-ssm": "^3.515.0",
-    "@aws-sdk/lib-dynamodb": "^3.518.0",
-    "@aws-sdk/util-dynamodb": "^3.436.0",
     "@types/aws-lambda": "^8.10.134",
     "@types/md5": "^2.3.5",
     "@types/node": "^12.20.55",
@@ -32,6 +28,10 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.518.0",
+    "@aws-sdk/client-ssm": "^3.515.0",
+    "@aws-sdk/lib-dynamodb": "^3.518.0",
+    "@aws-sdk/util-dynamodb": "^3.436.0",
     "@lunisolar/julian": "^0.7.1",
     "got": "^11.8.6",
     "md5": "^2.3.0",
